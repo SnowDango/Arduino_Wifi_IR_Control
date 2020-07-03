@@ -39,7 +39,7 @@ void loop(){
       }else if(air_off_status == LOW){ // air conditioner off
         Serial.println("air off");
         IRSenderPWM irSender(3);
-        PanasonicDKEHeatpumpIR *heatpumpIR;
+        PanasonicHeatpumpIR *heatpumpIR;
         heatpumpIR = new PanasonicDKEHeatpumpIR();
         heatpumpIR->send(irSender, POWER_OFF, MODE_COOL, FAN_AUTO, 26, VDIR_AUTO, HDIR_AUTO);
       }else if(light_on_status == LOW){ // light on
