@@ -1,65 +1,101 @@
-#include <IRremote.h>
-#include <Arduino.h>
-#include <PanasonicHeatpumpIR.h>
+#include "WebTextCtl.h"
+#include "IRSendControl.h"
+#include "WifiControl.h"
 
 // pin number
-#define light_on_button 7
-#define light_off_button 6
-#define cool_button 5
-#define hot_button 4
-#define stop_button 2
+#define light_on_button 27
+#define light_off_button 16
+#define cool_button 17
+#define hot_button 25
+#define stop_button 26
 
-void setup(){
-  // setting button pin mode 
-    pinMode(light_on_button,INPUT) ;
-    pinMode(light_off_button,INPUT) ; 
-    pinMode(cool_button,INPUT);
-    pinMode(hot_button,INPUT);
-    pinMode(stop_button,INPUT);
+// 使用するWi-Fiとそのパスワードに書き換えてください
 
-    // Serial begin speed = 115200
-    Serial.begin(115200);
+IPAddress ip(192,168,1,50);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
+IPAddress DNS(192,168,1,1);
+
+// ポート80番を使用
+WiFiServer server(80);
+
+// HTTPリクエストを格納する変数
+String header;
+
+// 値の設定に使用する変数
+String valueString = String(5);
+int pos1 = 0;
+int pos2 = 0;
+
+void setup() {
+  Serial.begin(115200);
+
+  WiFi.config(ip, gateway, subnet, DNS); 
+
+  if(connectWifi()){
+    Serial.println("");
+    Serial.println("WiFi connected.");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    server.begin();
+  }else{
+    //ESP.reset();
+  }
+
+  pinMode(light_on_button,INPUT) ;
+  pinMode(light_off_button,INPUT) ; 
+  pinMode(cool_button,INPUT);
+  pinMode(hot_button,INPUT);
+  pinMode(stop_button,INPUT);
 }
 
 void loop(){
+  
+  if(WiFi.status() != WL_CONNECTED){ // Wifi切れた時
+    Serial.println("Wifi disconnect."); 
+    if(connectWifi()){
+      Serial.println("");
+      Serial.println("WiFi connected.");
+      Serial.println("IP address: ");
+      Serial.println(WiFi.localIP());
+      server.begin();
+    }else{
+      //ESP.reset();
+    }
+  }else{
+    WiFiClient client = server.available();   // Listen for incoming clients
+    if (client) {                    
+      Serial.println("New Client.");  
+      String currentLine = "";           
+      while (client.connected()) {     
+        if (client.available()) {      
+          char c = client.read();       
+          Serial.write(c);
+          header += c;
+          if (c == '\n') {
+            if (currentLine.length() == 0) {
+              break;
+            } else {
+              currentLine = "";
+            }
+          } else if (c != '\r') {
+            currentLine += c;
+          }
+        }
+      }  
+      String requestBody = readRequestBody(client);
+      String systemStr = getSystem(requestBody);
+      String modeStr = getModeSystem(requestBody);
+      if(systemStr!="NOT" || modeStr!="NOT"){
+        irControl(systemStr,modeStr);
+      } 
 
-  // read button state 
-    unsigned int light_on_status = digitalRead(light_on_button);
-    unsigned int light_off_status = digitalRead(light_off_button);
-    unsigned int air_cool_on_status = digitalRead(cool_button);
-    unsigned int air_hot_on_status = digitalRead(hot_button);
-    unsigned int air_off_status = digitalRead(stop_button);
-
-    // 
-    
-    if(light_off_status == HIGH){ //　light off
-        IRsend irsend;
-        irsend.sendNEC(0xE730D12E,32);
-        Serial.println("light off");
-      }else if(air_off_status == HIGH){ // air conditioner off
-        Serial.println("air off");
-        IRSenderPWM irSender(3);
-        PanasonicHeatpumpIR *heatpumpIR;
-        heatpumpIR = new PanasonicDKEHeatpumpIR();
-        heatpumpIR->send(irSender, POWER_OFF, MODE_COOL, FAN_AUTO, 26, VDIR_AUTO, HDIR_AUTO);
-      }else if(light_on_status == HIGH){ // light on
-        IRsend irsend;
-        irsend.sendNEC(0xE73045BA,32);
-        Serial.println("light on");
-      }else if(air_cool_on_status == HIGH){ // air conditioner mode cool
-        Serial.println("cool on");
-        IRSenderPWM irSender(3);
-        PanasonicDKEHeatpumpIR *heatpumpIR;
-        heatpumpIR = new PanasonicDKEHeatpumpIR();
-        heatpumpIR->send(irSender, POWER_ON, MODE_COOL, FAN_AUTO, 26, VDIR_AUTO, HDIR_AUTO);
-      }else if(air_hot_on_status == HIGH){ // air conditioner mode hot
-        Serial.println("hot on");
-        IRSenderPWM irSender(3);
-        PanasonicDKEHeatpumpIR *heatpumpIR;
-        heatpumpIR = new PanasonicDKEHeatpumpIR();
-        heatpumpIR->send(irSender, POWER_ON, MODE_HEAT, FAN_AUTO, 22, VDIR_AUTO, HDIR_AUTO);
-      }
-
-      //delay time between this loop and next loop
-    delay(500);
+      client.write("{Content-Type: application/json ,payload: {Text : \"OK\"}}");
+      
+      client.stop();
+      header = "";
+    }
+  }
+  irControl(digitalRead(light_on_button), digitalRead(light_off_button) ,
+    digitalRead(cool_button) , digitalRead(hot_button) , digitalRead(stop_button)); 
 }
