@@ -4,3 +4,6 @@
 ## ライブラリ
 * [ToniA/arduino-heatpumpir](https://github.com/ToniA/arduino-heatpumpir) 
 * [z3t0/Arduino-IRremote](https://github.com/z3t0/Arduino-IRremote)
+
+## 参考資料　
+* [ESP32/arduino : POST受信](https://qazsedcftf.blogspot.com/2019/05/esp32arduino-post.html)
