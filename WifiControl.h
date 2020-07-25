@@ -1,7 +1,7 @@
 #include <WiFi.h>
 
-const char* ssid     = "Buffalo-G-8FDE";
-const char* password = "xfvsehs54s8sc";
+const char* ssid     = "";
+const char* password = "";
 
 bool connectWifi(){
     unsigned long startTime = millis();
